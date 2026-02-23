@@ -3,8 +3,9 @@ package com.william.astuterepo.ui.applist
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.william.astuterepo.data.model.AppEntry
 import com.william.astuterepo.data.repository.AppRepository
+import com.william.astuterepo.domain.AppWithStatus
+import com.william.astuterepo.domain.VersionChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,14 +14,16 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class AppListUiState(
-    val apps: List<AppEntry> = emptyList(),
+    val apps: List<AppWithStatus> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val selectedApp: AppWithStatus? = null
 )
 
 @HiltViewModel
 class AppListViewModel @Inject constructor(
-    private val repository: AppRepository
+    private val repository: AppRepository,
+    private val versionChecker: VersionChecker
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppListUiState())
@@ -29,7 +32,8 @@ class AppListViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             repository.observeApps().collect { apps ->
-                _uiState.value = _uiState.value.copy(apps = apps)
+                val appsWithStatus = apps.map { versionChecker.resolveStatus(it) }
+                _uiState.value = _uiState.value.copy(apps = appsWithStatus)
             }
         }
         refreshManifest()
@@ -50,6 +54,21 @@ class AppListViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(isLoading = false)
             }
         }
+    }
+
+    fun recheckStatuses() {
+        val currentApps = _uiState.value.apps
+        if (currentApps.isEmpty()) return
+        val refreshed = currentApps.map { versionChecker.resolveStatus(it.app) }
+        _uiState.value = _uiState.value.copy(apps = refreshed)
+    }
+
+    fun selectApp(app: AppWithStatus) {
+        _uiState.value = _uiState.value.copy(selectedApp = app)
+    }
+
+    fun clearSelection() {
+        _uiState.value = _uiState.value.copy(selectedApp = null)
     }
 
     companion object {
