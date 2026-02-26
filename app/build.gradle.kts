@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.william.astuterepo"
+    namespace = "com.astute.repo"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.william.astuterepo"
+        applicationId = "com.astute.repo"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1

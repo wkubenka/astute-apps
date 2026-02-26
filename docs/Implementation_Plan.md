@@ -55,7 +55,7 @@ The repository is driven by a single JSON manifest file hosted alongside the APK
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | String | Android application ID (e.g., `com.william.moneymanager`) |
+| `id` | String | Android application ID (e.g., `com.astute.moneymanager`) |
 | `name` | String | Human-readable app name |
 | `version_code` | Integer | Incremental version code for comparison |
 | `version_name` | String | Display version string (e.g., `1.2.0`) |
