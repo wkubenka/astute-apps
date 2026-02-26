@@ -28,18 +28,23 @@ class VersionChecker @Inject constructor(
     private val packageManager: PackageManager get() = application.packageManager
 
     fun getInstallStatus(appId: String, manifestVersionName: String?): InstallStatus {
-        if (manifestVersionName == null) return InstallStatus.NO_RELEASE
-
-        return try {
-            val info = packageManager.getPackageInfo(appId, 0)
-            val installedVersionName = info.versionName ?: return InstallStatus.UPDATE_AVAILABLE
-            if (compareVersions(installedVersionName, manifestVersionName) >= 0) {
-                InstallStatus.UP_TO_DATE
-            } else {
-                InstallStatus.UPDATE_AVAILABLE
-            }
+        val info = try {
+            packageManager.getPackageInfo(appId, 0)
         } catch (_: PackageManager.NameNotFoundException) {
-            InstallStatus.NOT_INSTALLED
+            null
+        }
+
+        if (manifestVersionName == null) {
+            return if (info != null) InstallStatus.UP_TO_DATE else InstallStatus.NO_RELEASE
+        }
+
+        if (info == null) return InstallStatus.NOT_INSTALLED
+
+        val installedVersionName = info.versionName ?: return InstallStatus.UPDATE_AVAILABLE
+        return if (compareVersions(installedVersionName, manifestVersionName) >= 0) {
+            InstallStatus.UP_TO_DATE
+        } else {
+            InstallStatus.UPDATE_AVAILABLE
         }
     }
 
