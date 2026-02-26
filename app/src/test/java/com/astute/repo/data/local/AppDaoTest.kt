@@ -24,15 +24,15 @@ class AppDaoTest {
     private fun createApp(
         id: String,
         name: String,
-        versionCode: Int = 1
+        versionName: String? = "1.0.0"
     ) = AppEntry(
         id = id,
         name = name,
-        versionCode = versionCode,
-        versionName = "1.0.0",
         description = "Description for $name",
-        apkUrl = "https://example.com/$id.apk",
-        iconUrl = "https://example.com/$id.png"
+        iconUrl = "https://example.com/$id.png",
+        github = "test/$id",
+        versionName = versionName,
+        apkUrl = "https://example.com/$id.apk"
     )
 
     @Before
@@ -85,17 +85,17 @@ class AppDaoTest {
 
     @Test
     fun `insertAll with conflict replaces existing entry`() = runTest {
-        val original = createApp("com.test.app", "Original Name", versionCode = 1)
+        val original = createApp("com.test.app", "Original Name", versionName = "1.0.0")
         dao.insertAll(listOf(original))
 
-        val updated = createApp("com.test.app", "Updated Name", versionCode = 2)
+        val updated = createApp("com.test.app", "Updated Name", versionName = "2.0.0")
         dao.insertAll(listOf(updated))
 
         dao.getAllApps().test {
             val result = awaitItem()
             assertEquals(1, result.size)
             assertEquals("Updated Name", result[0].name)
-            assertEquals(2, result[0].versionCode)
+            assertEquals("2.0.0", result[0].versionName)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -114,11 +114,11 @@ class AppDaoTest {
         val app = AppEntry(
             id = "com.test.full",
             name = "Full App",
-            versionCode = 5,
-            versionName = "2.1.0",
             description = "Full description",
-            apkUrl = "https://example.com/full.apk",
             iconUrl = "https://example.com/full.png",
+            github = "test/full",
+            versionName = "2.1.0",
+            apkUrl = "https://example.com/full.apk",
             changelog = "Fixed bugs",
             minSdk = 28
         )
@@ -130,11 +130,11 @@ class AppDaoTest {
             val stored = result[0]
             assertEquals("com.test.full", stored.id)
             assertEquals("Full App", stored.name)
-            assertEquals(5, stored.versionCode)
-            assertEquals("2.1.0", stored.versionName)
             assertEquals("Full description", stored.description)
-            assertEquals("https://example.com/full.apk", stored.apkUrl)
             assertEquals("https://example.com/full.png", stored.iconUrl)
+            assertEquals("test/full", stored.github)
+            assertEquals("2.1.0", stored.versionName)
+            assertEquals("https://example.com/full.apk", stored.apkUrl)
             assertEquals("Fixed bugs", stored.changelog)
             assertEquals(28, stored.minSdk)
             cancelAndIgnoreRemainingEvents()

@@ -6,7 +6,7 @@ import com.astute.repo.data.model.AppEntry
 
 @Database(
     entities = [AppEntry::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -137,6 +137,13 @@ class AppListViewModel @Inject constructor(
             return
         }
 
+        if (app.apkUrl == null) {
+            _uiState.value = _uiState.value.copy(
+                errorState = ErrorState.Transient("${app.name} has no downloadable release")
+            )
+            return
+        }
+
         if (app.minSdk != null && Build.VERSION.SDK_INT < app.minSdk) {
             _uiState.value = _uiState.value.copy(
                 errorState = ErrorState.Transient(

@@ -3,34 +3,25 @@
     {
       "id": "com.william.moneymanager",
       "name": "Money Manager",
-      "version_code": 3,
-      "version_name": "1.2.0",
       "description": "Personal finance tracker with budgeting, expense categorization, and monthly reports.",
-      "apk_url": "https://github.com/william/money-manager/releases/download/v1.2.0/money-manager-1.2.0.apk",
       "icon_url": "https://raw.githubusercontent.com/william/money-manager/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
-      "changelog": "Added monthly budget overview and CSV export.",
+      "github": "william/money-manager",
       "min_sdk": 26
     },
     {
       "id": "com.william.habitsync",
       "name": "HabitSync",
-      "version_code": 1,
-      "version_name": "0.1.0",
       "description": "Daily habit tracker with streak tracking and reminder notifications.",
-      "apk_url": "https://github.com/william/habitsync/releases/download/v0.1.0/habitsync-0.1.0.apk",
       "icon_url": "https://raw.githubusercontent.com/william/habitsync/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
-      "changelog": null,
+      "github": "william/habitsync",
       "min_sdk": 26
     },
     {
       "id": "com.william.quicknotes",
       "name": "QuickNotes",
-      "version_code": 5,
-      "version_name": "2.0.1",
       "description": "Lightweight note-taking app with Markdown support and local storage.",
-      "apk_url": "https://github.com/william/quicknotes/releases/download/v2.0.1/quicknotes-2.0.1.apk",
       "icon_url": "https://raw.githubusercontent.com/william/quicknotes/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
-      "changelog": "Migrated to Material 3 and fixed dark mode rendering issues.",
+      "github": "william/quicknotes",
       "min_sdk": 26
     }
   ]

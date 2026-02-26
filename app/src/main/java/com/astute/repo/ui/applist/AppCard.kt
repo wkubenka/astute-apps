@@ -74,7 +74,7 @@ fun AppCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "v${appWithStatus.app.versionName}",
+                    text = appWithStatus.app.versionName?.let { "v$it" } ?: "No release",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -155,6 +155,11 @@ private fun StatusBadge(status: InstallStatus) {
             "Update",
             MaterialTheme.colorScheme.tertiaryContainer,
             MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        InstallStatus.NO_RELEASE -> Triple(
+            "N/A",
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 

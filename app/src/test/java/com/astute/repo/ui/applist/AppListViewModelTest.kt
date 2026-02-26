@@ -47,11 +47,11 @@ class AppListViewModelTest {
     private val sampleApp = AppEntry(
         id = "com.test.app",
         name = "Test App",
-        versionCode = 1,
-        versionName = "1.0.0",
         description = "Test",
-        apkUrl = "https://example.com/app.apk",
-        iconUrl = "https://example.com/icon.png"
+        iconUrl = "https://example.com/icon.png",
+        github = "test/app",
+        versionName = "1.0.0",
+        apkUrl = "https://example.com/app.apk"
     )
 
     private val sampleAppWithStatus = AppWithStatus(
@@ -262,6 +262,22 @@ class AppListViewModelTest {
             assertNotNull(errorState)
             assertTrue(errorState is ErrorState.Transient)
             assertTrue((errorState as ErrorState.Transient).message.contains("requires Android API"))
+        }
+
+    @Test
+    fun `downloadAndInstall rejects app with no APK`() =
+        runTest(testDispatcher.scheduler) {
+            val noApkApp = sampleApp.copy(apkUrl = null)
+
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            vm.downloadAndInstall(noApkApp)
+
+            val errorState = vm.uiState.value.errorState
+            assertNotNull(errorState)
+            assertTrue(errorState is ErrorState.Transient)
+            assertTrue((errorState as ErrorState.Transient).message.contains("no downloadable release"))
         }
 
     @Test

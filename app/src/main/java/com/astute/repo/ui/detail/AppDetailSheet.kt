@@ -81,7 +81,7 @@ fun AppDetailSheet(
                         style = MaterialTheme.typography.headlineSmall
                     )
                     Text(
-                        text = "v${app.versionName}",
+                        text = app.versionName?.let { "v$it" } ?: "No release available",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -186,6 +186,15 @@ fun AppDetailSheet(
                         Text("Installed")
                     }
                 }
+                appWithStatus.status == InstallStatus.NO_RELEASE -> {
+                    OutlinedButton(
+                        onClick = { },
+                        enabled = false,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("No Release Available")
+                    }
+                }
             }
         }
     }
@@ -208,6 +217,11 @@ private fun StatusChip(status: InstallStatus) {
             "Update Available",
             MaterialTheme.colorScheme.tertiaryContainer,
             MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        InstallStatus.NO_RELEASE -> Triple(
+            "No Release",
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 

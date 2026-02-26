@@ -10,7 +10,8 @@ import javax.inject.Singleton
 enum class InstallStatus {
     NOT_INSTALLED,
     UP_TO_DATE,
-    UPDATE_AVAILABLE
+    UPDATE_AVAILABLE,
+    NO_RELEASE
 }
 
 data class AppWithStatus(
@@ -26,16 +27,13 @@ class VersionChecker @Inject constructor(
 ) {
     private val packageManager: PackageManager get() = application.packageManager
 
-    fun getInstallStatus(appId: String, manifestVersionCode: Int): InstallStatus {
+    fun getInstallStatus(appId: String, manifestVersionName: String?): InstallStatus {
+        if (manifestVersionName == null) return InstallStatus.NO_RELEASE
+
         return try {
             val info = packageManager.getPackageInfo(appId, 0)
-            val installedCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                info.longVersionCode
-            } else {
-                @Suppress("DEPRECATION")
-                info.versionCode.toLong()
-            }
-            if (installedCode >= manifestVersionCode) {
+            val installedVersionName = info.versionName ?: return InstallStatus.UPDATE_AVAILABLE
+            if (compareVersions(installedVersionName, manifestVersionName) >= 0) {
                 InstallStatus.UP_TO_DATE
             } else {
                 InstallStatus.UPDATE_AVAILABLE
@@ -68,12 +66,28 @@ class VersionChecker @Inject constructor(
     }
 
     fun resolveStatus(app: AppEntry): AppWithStatus {
-        val status = getInstallStatus(app.id, app.versionCode)
+        val status = getInstallStatus(app.id, app.versionName)
         return AppWithStatus(
             app = app,
             status = status,
-            installedVersionName = if (status != InstallStatus.NOT_INSTALLED) getInstalledVersionName(app.id) else null,
-            installedVersionCode = if (status != InstallStatus.NOT_INSTALLED) getInstalledVersionCode(app.id) else null
+            installedVersionName = if (status != InstallStatus.NOT_INSTALLED &&
+                status != InstallStatus.NO_RELEASE) getInstalledVersionName(app.id) else null,
+            installedVersionCode = if (status != InstallStatus.NOT_INSTALLED &&
+                status != InstallStatus.NO_RELEASE) getInstalledVersionCode(app.id) else null
         )
+    }
+
+    companion object {
+        fun compareVersions(v1: String, v2: String): Int {
+            val parts1 = v1.split(".").map { it.toIntOrNull() ?: 0 }
+            val parts2 = v2.split(".").map { it.toIntOrNull() ?: 0 }
+            val maxLen = maxOf(parts1.size, parts2.size)
+            for (i in 0 until maxLen) {
+                val p1 = parts1.getOrElse(i) { 0 }
+                val p2 = parts2.getOrElse(i) { 0 }
+                if (p1 != p2) return p1.compareTo(p2)
+            }
+            return 0
+        }
     }
 }

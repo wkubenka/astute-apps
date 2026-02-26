@@ -39,16 +39,19 @@ class InstallManager @Inject constructor(
     }
 
     suspend fun downloadAndInstall(app: AppEntry): Intent? {
+        val apkUrl = app.apkUrl
+            ?: throw IllegalStateException("No APK available for ${app.name}")
+
         cleanupApkForApp(app.id)
 
-        val fileName = "${app.id}_${app.versionCode}.apk"
+        val fileName = "${app.id}_${app.versionName ?: "unknown"}.apk"
         val destinationDir = application.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
             ?: throw IllegalStateException("External files directory unavailable")
         val destinationFile = File(destinationDir, fileName)
 
-        val request = DownloadManager.Request(Uri.parse(app.apkUrl))
+        val request = DownloadManager.Request(Uri.parse(apkUrl))
             .setTitle("Downloading ${app.name}")
-            .setDescription("v${app.versionName}")
+            .setDescription("v${app.versionName ?: ""}")
             .setDestinationUri(Uri.fromFile(destinationFile))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
 

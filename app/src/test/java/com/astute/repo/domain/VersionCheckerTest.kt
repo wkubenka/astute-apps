@@ -25,15 +25,15 @@ class VersionCheckerTest {
 
     private fun createAppEntry(
         id: String = testAppId,
-        versionCode: Int = 5
+        versionName: String? = "1.0.0"
     ) = AppEntry(
         id = id,
         name = "Test App",
-        versionCode = versionCode,
-        versionName = "1.0.0",
         description = "Test",
-        apkUrl = "https://example.com/app.apk",
-        iconUrl = "https://example.com/icon.png"
+        iconUrl = "https://example.com/icon.png",
+        github = "test/app",
+        versionName = versionName,
+        apkUrl = "https://example.com/app.apk"
     )
 
     @Before
@@ -55,7 +55,7 @@ class VersionCheckerTest {
 
     @Test
     fun `getInstallStatus returns NOT_INSTALLED for missing package`() {
-        val status = versionChecker.getInstallStatus("com.nonexistent.app", 1)
+        val status = versionChecker.getInstallStatus("com.nonexistent.app", "1.0.0")
         assertEquals(InstallStatus.NOT_INSTALLED, status)
     }
 
@@ -63,7 +63,7 @@ class VersionCheckerTest {
     fun `getInstallStatus returns UP_TO_DATE when versions match`() {
         installPackage(testAppId, 5L, "1.0.0")
 
-        val status = versionChecker.getInstallStatus(testAppId, 5)
+        val status = versionChecker.getInstallStatus(testAppId, "1.0.0")
         assertEquals(InstallStatus.UP_TO_DATE, status)
     }
 
@@ -71,7 +71,7 @@ class VersionCheckerTest {
     fun `getInstallStatus returns UP_TO_DATE when installed is newer`() {
         installPackage(testAppId, 10L, "2.0.0")
 
-        val status = versionChecker.getInstallStatus(testAppId, 5)
+        val status = versionChecker.getInstallStatus(testAppId, "1.0.0")
         assertEquals(InstallStatus.UP_TO_DATE, status)
     }
 
@@ -79,8 +79,14 @@ class VersionCheckerTest {
     fun `getInstallStatus returns UPDATE_AVAILABLE when installed is older`() {
         installPackage(testAppId, 3L, "0.9.0")
 
-        val status = versionChecker.getInstallStatus(testAppId, 5)
+        val status = versionChecker.getInstallStatus(testAppId, "1.0.0")
         assertEquals(InstallStatus.UPDATE_AVAILABLE, status)
+    }
+
+    @Test
+    fun `getInstallStatus returns NO_RELEASE when manifest version is null`() {
+        val status = versionChecker.getInstallStatus(testAppId, null)
+        assertEquals(InstallStatus.NO_RELEASE, status)
     }
 
     @Test
@@ -126,7 +132,7 @@ class VersionCheckerTest {
     @Test
     fun `resolveStatus returns UP_TO_DATE with version info`() {
         installPackage(testAppId, 5L, "1.0.0")
-        val app = createAppEntry(versionCode = 5)
+        val app = createAppEntry(versionName = "1.0.0")
 
         val result = versionChecker.resolveStatus(app)
 
@@ -140,12 +146,53 @@ class VersionCheckerTest {
     @Test
     fun `resolveStatus returns UPDATE_AVAILABLE with version info`() {
         installPackage(testAppId, 3L, "0.9.0")
-        val app = createAppEntry(versionCode = 5)
+        val app = createAppEntry(versionName = "1.0.0")
 
         val result = versionChecker.resolveStatus(app)
 
         assertEquals(InstallStatus.UPDATE_AVAILABLE, result.status)
         assertEquals("0.9.0", result.installedVersionName)
         assertEquals(3L, result.installedVersionCode)
+    }
+
+    @Test
+    fun `resolveStatus returns NO_RELEASE when versionName is null`() {
+        val app = createAppEntry(versionName = null)
+
+        val result = versionChecker.resolveStatus(app)
+
+        assertEquals(InstallStatus.NO_RELEASE, result.status)
+        assertNull(result.installedVersionName)
+        assertNull(result.installedVersionCode)
+    }
+
+    @Test
+    fun `compareVersions returns zero for equal versions`() {
+        assertEquals(0, VersionChecker.compareVersions("1.0.0", "1.0.0"))
+    }
+
+    @Test
+    fun `compareVersions returns positive when first is greater`() {
+        assertTrue(VersionChecker.compareVersions("2.0.0", "1.0.0") > 0)
+        assertTrue(VersionChecker.compareVersions("1.1.0", "1.0.0") > 0)
+        assertTrue(VersionChecker.compareVersions("1.0.1", "1.0.0") > 0)
+    }
+
+    @Test
+    fun `compareVersions returns negative when first is lesser`() {
+        assertTrue(VersionChecker.compareVersions("1.0.0", "2.0.0") < 0)
+        assertTrue(VersionChecker.compareVersions("1.0.0", "1.1.0") < 0)
+        assertTrue(VersionChecker.compareVersions("1.0.0", "1.0.1") < 0)
+    }
+
+    @Test
+    fun `compareVersions handles different segment counts`() {
+        assertEquals(0, VersionChecker.compareVersions("1.0", "1.0.0"))
+        assertTrue(VersionChecker.compareVersions("1.0.1", "1.0") > 0)
+        assertTrue(VersionChecker.compareVersions("1.0", "1.0.1") < 0)
+    }
+
+    private fun assertTrue(condition: Boolean) {
+        org.junit.Assert.assertTrue(condition)
     }
 }

@@ -18,24 +18,17 @@ class SerializationTest {
             {
               "id": "com.william.moneymanager",
               "name": "Money Manager",
-              "version_code": 3,
-              "version_name": "1.2.0",
               "description": "Personal finance tracker.",
-              "apk_url": "https://example.com/money-manager.apk",
               "icon_url": "https://example.com/money-manager.png",
-              "changelog": "Added CSV export.",
+              "github": "william/money-manager",
               "min_sdk": 26
             },
             {
               "id": "com.william.habitsync",
               "name": "HabitSync",
-              "version_code": 1,
-              "version_name": "0.1.0",
               "description": "Habit tracker.",
-              "apk_url": "https://example.com/habitsync.apk",
               "icon_url": "https://example.com/habitsync.png",
-              "changelog": null,
-              "min_sdk": 26
+              "github": "william/habitsync"
             }
           ]
         }
@@ -49,65 +42,37 @@ class SerializationTest {
     }
 
     @Test
-    fun `parse app entry with all fields`() {
+    fun `parse manifest entry with all fields`() {
         val response = json.decodeFromString<ManifestResponse>(sampleManifestJson)
-        val app = response.apps[0]
+        val entry = response.apps[0]
 
-        assertEquals("com.william.moneymanager", app.id)
-        assertEquals("Money Manager", app.name)
-        assertEquals(3, app.versionCode)
-        assertEquals("1.2.0", app.versionName)
-        assertEquals("Personal finance tracker.", app.description)
-        assertEquals("https://example.com/money-manager.apk", app.apkUrl)
-        assertEquals("https://example.com/money-manager.png", app.iconUrl)
-        assertEquals("Added CSV export.", app.changelog)
-        assertEquals(26, app.minSdk)
+        assertEquals("com.william.moneymanager", entry.id)
+        assertEquals("Money Manager", entry.name)
+        assertEquals("Personal finance tracker.", entry.description)
+        assertEquals("https://example.com/money-manager.png", entry.iconUrl)
+        assertEquals("william/money-manager", entry.github)
+        assertEquals(26, entry.minSdk)
     }
 
     @Test
-    fun `parse app entry with null changelog`() {
+    fun `parse manifest entry with missing optional fields`() {
         val response = json.decodeFromString<ManifestResponse>(sampleManifestJson)
-        val app = response.apps[1]
+        val entry = response.apps[1]
 
-        assertEquals("com.william.habitsync", app.id)
-        assertNull(app.changelog)
+        assertEquals("com.william.habitsync", entry.id)
+        assertNull(entry.minSdk)
     }
 
     @Test
-    fun `parse app entry with missing optional fields`() {
-        val jsonWithMissing = """
-            {
-              "apps": [{
-                "id": "com.test.app",
-                "name": "Test",
-                "version_code": 1,
-                "version_name": "1.0",
-                "description": "Desc",
-                "apk_url": "https://example.com/app.apk",
-                "icon_url": "https://example.com/icon.png"
-              }]
-            }
-        """.trimIndent()
-
-        val response = json.decodeFromString<ManifestResponse>(jsonWithMissing)
-        val app = response.apps[0]
-
-        assertNull(app.changelog)
-        assertNull(app.minSdk)
-    }
-
-    @Test
-    fun `ignore unknown keys in JSON`() {
+    fun `ignore unknown keys in manifest JSON`() {
         val jsonWithExtra = """
             {
               "apps": [{
                 "id": "com.test.app",
                 "name": "Test",
-                "version_code": 1,
-                "version_name": "1.0",
                 "description": "Desc",
-                "apk_url": "https://example.com/app.apk",
                 "icon_url": "https://example.com/icon.png",
+                "github": "test/app",
                 "unknown_field": "should be ignored",
                 "another_extra": 42
               }]
@@ -125,5 +90,86 @@ class SerializationTest {
 
         val response = json.decodeFromString<ManifestResponse>(emptyJson)
         assertEquals(0, response.apps.size)
+    }
+
+    @Test
+    fun `parse GitHub release with all fields`() {
+        val releaseJson = """
+            {
+              "tag_name": "v1.2.0",
+              "body": "Added CSV export.",
+              "assets": [
+                {
+                  "name": "money-manager-1.2.0.apk",
+                  "browser_download_url": "https://github.com/william/money-manager/releases/download/v1.2.0/money-manager-1.2.0.apk"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val release = json.decodeFromString<GitHubRelease>(releaseJson)
+
+        assertEquals("v1.2.0", release.tagName)
+        assertEquals("Added CSV export.", release.body)
+        assertEquals(1, release.assets.size)
+        assertEquals("money-manager-1.2.0.apk", release.assets[0].name)
+        assertEquals(
+            "https://github.com/william/money-manager/releases/download/v1.2.0/money-manager-1.2.0.apk",
+            release.assets[0].browserDownloadUrl
+        )
+    }
+
+    @Test
+    fun `parse GitHub release with no assets`() {
+        val releaseJson = """
+            {
+              "tag_name": "v0.1.0",
+              "body": "Initial release",
+              "assets": []
+            }
+        """.trimIndent()
+
+        val release = json.decodeFromString<GitHubRelease>(releaseJson)
+
+        assertEquals("v0.1.0", release.tagName)
+        assertTrue(release.assets.isEmpty())
+    }
+
+    @Test
+    fun `parse GitHub release with null body`() {
+        val releaseJson = """
+            {
+              "tag_name": "v1.0.0",
+              "body": null,
+              "assets": []
+            }
+        """.trimIndent()
+
+        val release = json.decodeFromString<GitHubRelease>(releaseJson)
+
+        assertNull(release.body)
+    }
+
+    @Test
+    fun `parse GitHub release ignores unknown keys`() {
+        val releaseJson = """
+            {
+              "tag_name": "v1.0.0",
+              "body": "Notes",
+              "assets": [],
+              "id": 12345,
+              "node_id": "abc123",
+              "html_url": "https://github.com/...",
+              "draft": false,
+              "prerelease": false
+            }
+        """.trimIndent()
+
+        val release = json.decodeFromString<GitHubRelease>(releaseJson)
+        assertEquals("v1.0.0", release.tagName)
+    }
+
+    private fun assertTrue(condition: Boolean) {
+        org.junit.Assert.assertTrue(condition)
     }
 }

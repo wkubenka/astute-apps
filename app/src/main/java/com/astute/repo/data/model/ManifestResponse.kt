@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ManifestResponse(
     @SerialName("apps")
-    val apps: List<AppEntry>
+    val apps: List<ManifestEntry>
 )
