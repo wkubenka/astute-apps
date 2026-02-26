@@ -23,8 +23,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import com.william.astuterepo.R
 import com.william.astuterepo.domain.AppWithStatus
 import com.william.astuterepo.domain.DownloadState
 import com.william.astuterepo.domain.InstallStatus
@@ -59,8 +64,13 @@ fun AppDetailSheet(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 AsyncImage(
-                    model = app.iconUrl,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(app.iconUrl)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = "${app.name} icon",
+                    placeholder = painterResource(R.drawable.ic_app_placeholder),
+                    error = painterResource(R.drawable.ic_app_placeholder),
                     modifier = Modifier
                         .size(72.dp)
                         .clip(RoundedCornerShape(16.dp))

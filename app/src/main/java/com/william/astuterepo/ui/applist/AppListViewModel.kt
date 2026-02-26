@@ -6,11 +6,12 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.william.astuterepo.data.model.AppEntry
+import com.william.astuterepo.data.network.ConnectivityObserver
 import com.william.astuterepo.data.repository.AppRepository
+import com.william.astuterepo.data.repository.RefreshResult
 import com.william.astuterepo.domain.AppWithStatus
 import com.william.astuterepo.domain.DownloadState
 import com.william.astuterepo.domain.InstallManager
-import com.william.astuterepo.domain.InstallStatus
 import com.william.astuterepo.domain.VersionChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,10 +20,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+sealed interface ErrorState {
+    data class Offline(
+        val lastFetchTimeMillis: Long,
+        val message: String
+    ) : ErrorState
+
+    data class Transient(val message: String) : ErrorState
+}
+
 data class AppListUiState(
     val apps: List<AppWithStatus> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null,
+    val isOffline: Boolean = false,
+    val errorState: ErrorState? = null,
+    val searchQuery: String = "",
     val selectedApp: AppWithStatus? = null,
     val downloadStates: Map<String, DownloadState> = emptyMap(),
     val showPermissionDialog: Boolean = false,
@@ -34,7 +46,8 @@ data class AppListUiState(
 class AppListViewModel @Inject constructor(
     private val repository: AppRepository,
     private val versionChecker: VersionChecker,
-    private val installManager: InstallManager
+    private val installManager: InstallManager,
+    private val connectivityObserver: ConnectivityObserver
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppListUiState())
@@ -56,23 +69,50 @@ class AppListViewModel @Inject constructor(
             }
         }
 
+        viewModelScope.launch {
+            connectivityObserver.isOnline.collect { online ->
+                val wasOffline = _uiState.value.isOffline
+                if (online && wasOffline) {
+                    refreshManifest()
+                }
+                if (!online) {
+                    _uiState.value = _uiState.value.copy(isOffline = true)
+                }
+            }
+        }
+
         refreshManifest()
     }
 
     fun refreshManifest() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                repository.refreshManifest()
-                Log.d(TAG, "Manifest refresh completed successfully.")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to refresh manifest", e)
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Unknown error"
-                )
-            } finally {
-                _uiState.value = _uiState.value.copy(isLoading = false)
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val result = repository.refreshManifest()) {
+                is RefreshResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        errorState = null,
+                        isOffline = false
+                    )
+                }
+                is RefreshResult.Error -> {
+                    if (result.hasCachedData) {
+                        _uiState.value = _uiState.value.copy(
+                            isOffline = true,
+                            errorState = ErrorState.Offline(
+                                lastFetchTimeMillis = repository.lastFetchTimeMillis,
+                                message = "Showing cached data"
+                            )
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            errorState = ErrorState.Transient(
+                                result.exception.message ?: "Failed to load apps"
+                            )
+                        )
+                    }
+                }
             }
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
@@ -82,7 +122,6 @@ class AppListViewModel @Inject constructor(
         val refreshed = currentApps.map { versionChecker.resolveStatus(it.app) }
         _uiState.value = _uiState.value.copy(apps = refreshed)
 
-        // Clear download states for apps that finished installing or were cancelled
         val downloadStates = installManager.downloadStates.value
         refreshed.forEach { appWithStatus ->
             val dlState = downloadStates[appWithStatus.app.id]
@@ -100,7 +139,9 @@ class AppListViewModel @Inject constructor(
 
         if (app.minSdk != null && Build.VERSION.SDK_INT < app.minSdk) {
             _uiState.value = _uiState.value.copy(
-                error = "${app.name} requires Android API ${app.minSdk} but this device is API ${Build.VERSION.SDK_INT}"
+                errorState = ErrorState.Transient(
+                    "${app.name} requires Android API ${app.minSdk} but this device is API ${Build.VERSION.SDK_INT}"
+                )
             )
             return
         }
@@ -123,9 +164,22 @@ class AppListViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e(TAG, "Download failed for ${app.name}", e)
                 _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Download failed"
+                    errorState = ErrorState.Transient(
+                        e.message ?: "Download failed"
+                    )
                 )
             }
+        }
+    }
+
+    fun onSearchQueryChanged(query: String) {
+        _uiState.value = _uiState.value.copy(searchQuery = query)
+    }
+
+    fun clearTransientError() {
+        val current = _uiState.value.errorState
+        if (current is ErrorState.Transient) {
+            _uiState.value = _uiState.value.copy(errorState = null)
         }
     }
 

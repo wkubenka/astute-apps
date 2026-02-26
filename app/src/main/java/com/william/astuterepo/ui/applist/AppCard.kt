@@ -1,5 +1,10 @@
 package com.william.astuterepo.ui.applist
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import com.william.astuterepo.R
 import com.william.astuterepo.domain.AppWithStatus
 import com.william.astuterepo.domain.DownloadState
 import com.william.astuterepo.domain.InstallStatus
@@ -41,8 +51,13 @@ fun AppCard(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             AsyncImage(
-                model = appWithStatus.app.iconUrl,
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(appWithStatus.app.iconUrl)
+                    .crossfade(true)
+                    .build(),
                 contentDescription = "${appWithStatus.app.name} icon",
+                placeholder = painterResource(R.drawable.ic_app_placeholder),
+                error = painterResource(R.drawable.ic_app_placeholder),
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(12.dp))
@@ -72,35 +87,52 @@ fun AppCard(
                 )
             }
 
-            when {
-                downloadState is DownloadState.Downloading -> {
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(
-                            progress = { downloadState.progress / 100f },
-                            modifier = Modifier.size(36.dp),
-                            strokeWidth = 3.dp
-                        )
-                        Text(
-                            text = "${downloadState.progress}%",
-                            style = MaterialTheme.typography.labelSmall
-                        )
+            AnimatedContent(
+                targetState = when {
+                    downloadState is DownloadState.Downloading -> "downloading"
+                    downloadState is DownloadState.Installing ||
+                        downloadState is DownloadState.Downloaded -> "installing"
+                    else -> "status_${appWithStatus.status.name}"
+                },
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(200)) togetherWith
+                        fadeOut(animationSpec = tween(200))
+                },
+                label = "status_transition"
+            ) { targetState ->
+                when (targetState) {
+                    "downloading" -> {
+                        val state = downloadState as? DownloadState.Downloading
+                        Box(contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                progress = { (state?.progress ?: 0) / 100f },
+                                modifier = Modifier.size(36.dp),
+                                strokeWidth = 3.dp
+                            )
+                            Text(
+                                text = "${state?.progress ?: 0}%",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
-                }
-                downloadState is DownloadState.Installing ||
-                    downloadState is DownloadState.Downloaded -> {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ) {
-                        Text(
-                            text = "Installing",
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
+                    "installing" -> {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ) {
+                            Text(
+                                text = "Installing",
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(
+                                    horizontal = 12.dp,
+                                    vertical = 6.dp
+                                )
+                            )
+                        }
                     }
+                    else -> StatusBadge(status = appWithStatus.status)
                 }
-                else -> StatusBadge(status = appWithStatus.status)
             }
         }
     }

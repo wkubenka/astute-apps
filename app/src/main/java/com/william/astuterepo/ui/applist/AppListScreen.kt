@@ -10,12 +10,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -34,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.william.astuterepo.ui.components.StalenessBanner
 import com.william.astuterepo.ui.components.UnknownSourcesPermissionDialog
 import com.william.astuterepo.ui.detail.AppDetailSheet
 
@@ -58,8 +67,12 @@ fun AppListScreen(
         onPauseOrDispose { }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { snackbarHostState.showSnackbar(it) }
+    LaunchedEffect(uiState.errorState) {
+        val error = uiState.errorState
+        if (error is ErrorState.Transient) {
+            snackbarHostState.showSnackbar(error.message)
+            viewModel.clearTransientError()
+        }
     }
 
     val installIntent = uiState.installIntent
@@ -100,39 +113,127 @@ fun AppListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (uiState.apps.isEmpty() && !uiState.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "No apps available",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Pull to refresh",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
+            val filteredApps = remember(uiState.apps, uiState.searchQuery) {
+                if (uiState.searchQuery.isBlank()) {
+                    uiState.apps
+                } else {
+                    uiState.apps.filter {
+                        it.app.name.contains(uiState.searchQuery, ignoreCase = true)
                     }
                 }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(
-                        items = uiState.apps,
-                        key = { it.app.id }
-                    ) { appWithStatus ->
-                        AppCard(
-                            appWithStatus = appWithStatus,
-                            downloadState = uiState.downloadStates[appWithStatus.app.id],
-                            onClick = { viewModel.selectApp(appWithStatus) }
-                        )
+            }
+
+            when {
+                // Initial loading — show skeletons
+                uiState.apps.isEmpty() && uiState.isLoading -> {
+                    LazyColumn(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(5) { AppCardSkeleton() }
+                    }
+                }
+
+                // Empty state — no apps loaded
+                uiState.apps.isEmpty() && !uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "No apps available",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Pull to refresh",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Normal state — show apps with search
+                else -> {
+                    Column(Modifier.fillMaxSize()) {
+                        // Search bar
+                        if (uiState.apps.isNotEmpty() || uiState.searchQuery.isNotEmpty()) {
+                            OutlinedTextField(
+                                value = uiState.searchQuery,
+                                onValueChange = viewModel::onSearchQueryChanged,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                placeholder = { Text("Search apps") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Search, contentDescription = null)
+                                },
+                                trailingIcon = {
+                                    if (uiState.searchQuery.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { viewModel.onSearchQueryChanged("") }
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Clear,
+                                                contentDescription = "Clear search"
+                                            )
+                                        }
+                                    }
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(28.dp)
+                            )
+                        }
+
+                        if (filteredApps.isEmpty() && uiState.searchQuery.isNotEmpty()) {
+                            // Empty search results
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No results for \"${uiState.searchQuery}\"",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                contentPadding = PaddingValues(
+                                    horizontal = 16.dp,
+                                    vertical = 8.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Staleness banner
+                                val offlineError = uiState.errorState
+                                if (offlineError is ErrorState.Offline) {
+                                    item(key = "staleness_banner") {
+                                        StalenessBanner(
+                                            lastFetchTimeMillis = offlineError.lastFetchTimeMillis,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+                                    }
+                                }
+
+                                items(
+                                    items = filteredApps,
+                                    key = { it.app.id }
+                                ) { appWithStatus ->
+                                    AppCard(
+                                        appWithStatus = appWithStatus,
+                                        downloadState = uiState.downloadStates[appWithStatus.app.id],
+                                        onClick = { viewModel.selectApp(appWithStatus) },
+                                        modifier = Modifier.animateItem()
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

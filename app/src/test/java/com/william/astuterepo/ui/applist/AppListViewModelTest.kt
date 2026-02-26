@@ -1,7 +1,9 @@
 package com.william.astuterepo.ui.applist
 
 import com.william.astuterepo.data.model.AppEntry
+import com.william.astuterepo.data.network.ConnectivityObserver
 import com.william.astuterepo.data.repository.AppRepository
+import com.william.astuterepo.data.repository.RefreshResult
 import com.william.astuterepo.domain.AppWithStatus
 import com.william.astuterepo.domain.DownloadState
 import com.william.astuterepo.domain.InstallManager
@@ -30,7 +32,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppListViewModelTest {
@@ -39,7 +40,9 @@ class AppListViewModelTest {
     private lateinit var repository: AppRepository
     private lateinit var versionChecker: VersionChecker
     private lateinit var installManager: InstallManager
+    private lateinit var connectivityObserver: ConnectivityObserver
     private val downloadStatesFlow = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
+    private val connectivityFlow = MutableStateFlow(true)
 
     private val sampleApp = AppEntry(
         id = "com.test.app",
@@ -62,16 +65,18 @@ class AppListViewModelTest {
         repository = mockk()
         versionChecker = mockk()
         installManager = mockk()
+        connectivityObserver = mockk()
 
         every { versionChecker.resolveStatus(any()) } returns sampleAppWithStatus
         every { repository.observeApps() } returns flowOf(emptyList())
-        coEvery { repository.refreshManifest() } returns emptyList()
+        coEvery { repository.refreshManifest() } returns RefreshResult.Success(emptyList())
         every { installManager.downloadStates } returns downloadStatesFlow
         every { installManager.cleanupOldApks(any()) } just runs
         every { installManager.canInstallFromUnknownSources() } returns true
         every { installManager.markIdle(any()) } just runs
         every { installManager.markInstalling(any()) } just runs
         every { installManager.cancelDownload(any()) } just runs
+        every { connectivityObserver.isOnline } returns connectivityFlow
     }
 
     @After
@@ -80,7 +85,7 @@ class AppListViewModelTest {
     }
 
     private fun createViewModel(): AppListViewModel {
-        return AppListViewModel(repository, versionChecker, installManager)
+        return AppListViewModel(repository, versionChecker, installManager, connectivityObserver)
     }
 
     @Test
@@ -89,14 +94,14 @@ class AppListViewModelTest {
 
         val state = vm.uiState.value
         assertTrue(state.apps.isEmpty())
-        assertNull(state.error)
+        assertNull(state.errorState)
         assertNull(state.selectedApp)
     }
 
     @Test
     fun `refreshManifest sets loading state`() = runTest(testDispatcher.scheduler) {
         coEvery { repository.refreshManifest() } coAnswers {
-            emptyList()
+            RefreshResult.Success(emptyList())
         }
 
         val vm = createViewModel()
@@ -108,50 +113,75 @@ class AppListViewModelTest {
     @Test
     fun `refreshManifest success populates apps from Flow`() = runTest(testDispatcher.scheduler) {
         every { repository.observeApps() } returns flowOf(listOf(sampleApp))
-        coEvery { repository.refreshManifest() } returns listOf(sampleApp)
+        coEvery { repository.refreshManifest() } returns RefreshResult.Success(listOf(sampleApp))
 
         val vm = createViewModel()
         advanceUntilIdle()
 
         assertEquals(1, vm.uiState.value.apps.size)
         assertEquals("com.test.app", vm.uiState.value.apps[0].app.id)
-        assertNull(vm.uiState.value.error)
+        assertNull(vm.uiState.value.errorState)
     }
 
     @Test
-    fun `refreshManifest failure sets error message`() = runTest(testDispatcher.scheduler) {
-        coEvery { repository.refreshManifest() } throws IOException("Network error")
+    fun `refreshManifest failure without cache sets Transient error`() =
+        runTest(testDispatcher.scheduler) {
+            coEvery { repository.refreshManifest() } returns RefreshResult.Error(
+                exception = Exception("Network error"),
+                hasCachedData = false
+            )
 
-        val vm = createViewModel()
-        advanceUntilIdle()
+            val vm = createViewModel()
+            advanceUntilIdle()
 
-        assertNotNull(vm.uiState.value.error)
-        assertEquals("Network error", vm.uiState.value.error)
-        assertFalse(vm.uiState.value.isLoading)
-    }
+            val errorState = vm.uiState.value.errorState
+            assertTrue(errorState is ErrorState.Transient)
+            assertEquals("Network error", (errorState as ErrorState.Transient).message)
+            assertFalse(vm.uiState.value.isLoading)
+        }
 
     @Test
-    fun `recheckStatuses re-maps apps through VersionChecker`() = runTest(testDispatcher.scheduler) {
-        val updatedStatus = AppWithStatus(
-            app = sampleApp,
-            status = InstallStatus.UP_TO_DATE,
-            installedVersionName = "1.0.0",
-            installedVersionCode = 1L
-        )
+    fun `refreshManifest failure with cache sets Offline error`() =
+        runTest(testDispatcher.scheduler) {
+            every { repository.lastFetchTimeMillis } returns 1000L
+            coEvery { repository.refreshManifest() } returns RefreshResult.Error(
+                exception = Exception("No connection"),
+                hasCachedData = true
+            )
 
-        every { repository.observeApps() } returns flowOf(listOf(sampleApp))
-        coEvery { repository.refreshManifest() } returns listOf(sampleApp)
-        every { versionChecker.resolveStatus(sampleApp) } returns sampleAppWithStatus
+            val vm = createViewModel()
+            advanceUntilIdle()
 
-        val vm = createViewModel()
-        advanceUntilIdle()
+            val errorState = vm.uiState.value.errorState
+            assertTrue(errorState is ErrorState.Offline)
+            assertTrue(vm.uiState.value.isOffline)
+        }
 
-        every { versionChecker.resolveStatus(sampleApp) } returns updatedStatus
-        vm.recheckStatuses()
+    @Test
+    fun `recheckStatuses re-maps apps through VersionChecker`() =
+        runTest(testDispatcher.scheduler) {
+            val updatedStatus = AppWithStatus(
+                app = sampleApp,
+                status = InstallStatus.UP_TO_DATE,
+                installedVersionName = "1.0.0",
+                installedVersionCode = 1L
+            )
 
-        assertEquals(InstallStatus.UP_TO_DATE, vm.uiState.value.apps[0].status)
-        assertEquals("1.0.0", vm.uiState.value.apps[0].installedVersionName)
-    }
+            every { repository.observeApps() } returns flowOf(listOf(sampleApp))
+            coEvery { repository.refreshManifest() } returns RefreshResult.Success(
+                listOf(sampleApp)
+            )
+            every { versionChecker.resolveStatus(sampleApp) } returns sampleAppWithStatus
+
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            every { versionChecker.resolveStatus(sampleApp) } returns updatedStatus
+            vm.recheckStatuses()
+
+            assertEquals(InstallStatus.UP_TO_DATE, vm.uiState.value.apps[0].status)
+            assertEquals("1.0.0", vm.uiState.value.apps[0].installedVersionName)
+        }
 
     @Test
     fun `selectApp sets selectedApp in state`() = runTest(testDispatcher.scheduler) {
@@ -177,13 +207,14 @@ class AppListViewModelTest {
     }
 
     @Test
-    fun `recheckStatuses does nothing when apps list is empty`() = runTest(testDispatcher.scheduler) {
-        val vm = createViewModel()
-        advanceUntilIdle()
+    fun `recheckStatuses does nothing when apps list is empty`() =
+        runTest(testDispatcher.scheduler) {
+            val vm = createViewModel()
+            advanceUntilIdle()
 
-        vm.recheckStatuses()
-        assertTrue(vm.uiState.value.apps.isEmpty())
-    }
+            vm.recheckStatuses()
+            assertTrue(vm.uiState.value.apps.isEmpty())
+        }
 
     // Phase 3 tests
 
@@ -227,8 +258,10 @@ class AppListViewModelTest {
 
             vm.downloadAndInstall(highSdkApp)
 
-            assertNotNull(vm.uiState.value.error)
-            assertTrue(vm.uiState.value.error!!.contains("requires Android API"))
+            val errorState = vm.uiState.value.errorState
+            assertNotNull(errorState)
+            assertTrue(errorState is ErrorState.Transient)
+            assertTrue((errorState as ErrorState.Transient).message.contains("requires Android API"))
         }
 
     @Test
@@ -276,7 +309,9 @@ class AppListViewModelTest {
             )
 
             every { repository.observeApps() } returns flowOf(listOf(sampleApp))
-            coEvery { repository.refreshManifest() } returns listOf(sampleApp)
+            coEvery { repository.refreshManifest() } returns RefreshResult.Success(
+                listOf(sampleApp)
+            )
 
             val installedStatus = AppWithStatus(
                 app = sampleApp,
@@ -317,4 +352,92 @@ class AppListViewModelTest {
 
         verify { installManager.cleanupOldApks(any()) }
     }
+
+    // Phase 4 tests
+
+    @Test
+    fun `onSearchQueryChanged updates search query in state`() =
+        runTest(testDispatcher.scheduler) {
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            vm.onSearchQueryChanged("Money")
+            assertEquals("Money", vm.uiState.value.searchQuery)
+
+            vm.onSearchQueryChanged("")
+            assertEquals("", vm.uiState.value.searchQuery)
+        }
+
+    @Test
+    fun `clearTransientError clears only Transient errors`() =
+        runTest(testDispatcher.scheduler) {
+            coEvery { repository.refreshManifest() } returns RefreshResult.Error(
+                exception = Exception("Fail"),
+                hasCachedData = false
+            )
+
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.errorState is ErrorState.Transient)
+
+            vm.clearTransientError()
+            assertNull(vm.uiState.value.errorState)
+        }
+
+    @Test
+    fun `clearTransientError does not clear Offline errors`() =
+        runTest(testDispatcher.scheduler) {
+            every { repository.lastFetchTimeMillis } returns 1000L
+            coEvery { repository.refreshManifest() } returns RefreshResult.Error(
+                exception = Exception("No network"),
+                hasCachedData = true
+            )
+
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.errorState is ErrorState.Offline)
+
+            vm.clearTransientError()
+            // Should still be Offline
+            assertTrue(vm.uiState.value.errorState is ErrorState.Offline)
+        }
+
+    @Test
+    fun `connectivity restored triggers auto-refresh when previously offline`() =
+        runTest(testDispatcher.scheduler) {
+            // Start offline
+            connectivityFlow.value = false
+            every { repository.lastFetchTimeMillis } returns 1000L
+            coEvery { repository.refreshManifest() } returns RefreshResult.Error(
+                exception = Exception("Offline"),
+                hasCachedData = true
+            )
+
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.isOffline)
+
+            // Restore connectivity — should trigger refresh
+            coEvery { repository.refreshManifest() } returns RefreshResult.Success(emptyList())
+            connectivityFlow.value = true
+            advanceUntilIdle()
+
+            assertFalse(vm.uiState.value.isOffline)
+            assertNull(vm.uiState.value.errorState)
+        }
+
+    @Test
+    fun `connectivity change to offline sets isOffline flag`() =
+        runTest(testDispatcher.scheduler) {
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            connectivityFlow.value = false
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.isOffline)
+        }
 }
