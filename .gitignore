@@ -23,5 +23,9 @@ local.properties
 # Kotlin
 *.class
 
+# Signing
+*.jks
+*.keystore
+
 # Claude Code
 .claude/
