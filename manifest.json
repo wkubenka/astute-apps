@@ -1,3 +1,12 @@
 {
-  "apps": []
+  "apps": [
+    {
+      "id": "com.astute.podcasts",
+      "name": "Astute Podcasts",
+      "description": "Podcast player with search, subscriptions, downloads, and offline playback.",
+      "icon_url": "https://raw.githubusercontent.com/wkubenka/podcasts/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "github": "wkubenka/podcasts",
+      "min_sdk": 26
+    }
+  ]
 }
