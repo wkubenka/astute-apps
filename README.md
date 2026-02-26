@@ -34,7 +34,7 @@ The debug APK is output to `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Configuration
 
-The manifest URL is set in `app/build.gradle.kts` via `BuildConfig.MANIFEST_URL`. Update it to point to your hosted `manifest.json`.
+The app manifest lives at `manifest.json` in the root of this repo. The manifest URL in `app/build.gradle.kts` (`BuildConfig.MANIFEST_URL`) points to its raw GitHub URL.
 
 ## Manifest Schema
 
@@ -44,7 +44,7 @@ The app is driven by a single JSON manifest:
 {
   "apps": [
     {
-      "id": "com.example.myapp",
+      "id": "com.astute.myapp",
       "name": "My App",
       "version_code": 1,
       "version_name": "1.0.0",
@@ -57,6 +57,50 @@ The app is driven by a single JSON manifest:
   ]
 }
 ```
+
+## Adding Apps
+
+Only first-party apps under the `com.astute.*` namespace are included. No code changes are needed — just update `manifest.json` at the root of this repo and make the APK available for download.
+
+### Steps
+
+1. **Build a release APK** and host it at a stable URL (e.g. a GitHub release asset).
+2. **Host an app icon** (PNG, ideally the `xxxhdpi` launcher icon) at a public URL.
+3. **Add an entry** to the `apps` array in `manifest.json`:
+
+```json
+{
+  "id": "com.astute.myapp",
+  "name": "My App",
+  "version_code": 1,
+  "version_name": "1.0.0",
+  "description": "Short description of the app.",
+  "apk_url": "https://github.com/wkubenka/myapp/releases/download/v1.0.0/myapp-1.0.0.apk",
+  "icon_url": "https://raw.githubusercontent.com/wkubenka/myapp/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+  "changelog": "Initial release.",
+  "min_sdk": 26
+}
+```
+
+4. **Commit and push** — the app will appear on the next pull-to-refresh.
+
+### Field Reference
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Android package name under `com.astute.*`. Must be unique across the manifest. |
+| `name` | Yes | Display name shown in the app list. |
+| `version_code` | Yes | Integer version code. Used to compare against the installed version. |
+| `version_name` | Yes | Human-readable version string (e.g. `1.0.0`). |
+| `description` | Yes | Short description shown below the app name. |
+| `apk_url` | Yes | Direct download URL for the APK file. |
+| `icon_url` | Yes | URL to the app icon (PNG). |
+| `changelog` | No | What changed in this version. |
+| `min_sdk` | No | Minimum Android SDK level required to run the app. |
+
+### Updating an Existing App
+
+To publish a new version, update the entry's `version_code`, `version_name`, `apk_url`, and optionally `changelog`. Astute Repo compares `version_code` against the installed version to show an "Update Available" badge.
 
 ## Project Structure
 

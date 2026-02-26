@@ -21,7 +21,7 @@ android {
         buildConfigField(
             "String",
             "MANIFEST_URL",
-            "\"https://raw.githubusercontent.com/william/astute-repo-manifest/main/manifest.json\""
+            "\"https://raw.githubusercontent.com/wkubenka/astute-apps/main/manifest.json\""
         )
     }
 
