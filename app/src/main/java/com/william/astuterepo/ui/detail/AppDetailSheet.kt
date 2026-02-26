@@ -26,14 +26,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.william.astuterepo.domain.AppWithStatus
+import com.william.astuterepo.domain.DownloadState
 import com.william.astuterepo.domain.InstallStatus
+import com.william.astuterepo.ui.components.DownloadProgressIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailSheet(
     appWithStatus: AppWithStatus,
+    downloadState: DownloadState?,
     onDismiss: () -> Unit,
-    onAction: () -> Unit
+    onAction: () -> Unit,
+    onCancel: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val app = appWithStatus.app
@@ -109,8 +113,45 @@ fun AppDetailSheet(
 
             // Action button
             Spacer(Modifier.height(24.dp))
-            when (appWithStatus.status) {
-                InstallStatus.NOT_INSTALLED -> {
+            when {
+                downloadState is DownloadState.Downloading -> {
+                    DownloadProgressIndicator(
+                        state = downloadState,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+                downloadState is DownloadState.Installing ||
+                    downloadState is DownloadState.Downloaded -> {
+                    OutlinedButton(
+                        onClick = { },
+                        enabled = false,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Installing…")
+                    }
+                }
+                downloadState is DownloadState.Failed -> {
+                    Text(
+                        text = downloadState.reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onAction,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Retry")
+                    }
+                }
+                appWithStatus.status == InstallStatus.NOT_INSTALLED -> {
                     Button(
                         onClick = onAction,
                         modifier = Modifier.fillMaxWidth()
@@ -118,7 +159,7 @@ fun AppDetailSheet(
                         Text("Install")
                     }
                 }
-                InstallStatus.UPDATE_AVAILABLE -> {
+                appWithStatus.status == InstallStatus.UPDATE_AVAILABLE -> {
                     Button(
                         onClick = onAction,
                         modifier = Modifier.fillMaxWidth()
@@ -126,7 +167,7 @@ fun AppDetailSheet(
                         Text("Update")
                     }
                 }
-                InstallStatus.UP_TO_DATE -> {
+                appWithStatus.status == InstallStatus.UP_TO_DATE -> {
                     OutlinedButton(
                         onClick = { },
                         enabled = false,

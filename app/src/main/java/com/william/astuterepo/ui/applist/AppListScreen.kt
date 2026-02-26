@@ -1,5 +1,10 @@
 package com.william.astuterepo.ui.applist
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,10 +29,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.william.astuterepo.ui.components.UnknownSourcesPermissionDialog
 import com.william.astuterepo.ui.detail.AppDetailSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +45,13 @@ fun AppListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        viewModel.onPermissionGrantResult()
+    }
 
     LifecycleResumeEffect(Unit) {
         viewModel.recheckStatuses()
@@ -46,6 +60,27 @@ fun AppListScreen(
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let { snackbarHostState.showSnackbar(it) }
+    }
+
+    val installIntent = uiState.installIntent
+    LaunchedEffect(installIntent) {
+        installIntent?.let {
+            context.startActivity(it)
+            viewModel.onInstallIntentLaunched()
+        }
+    }
+
+    if (uiState.showPermissionDialog) {
+        UnknownSourcesPermissionDialog(
+            onConfirm = {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${context.packageName}")
+                )
+                permissionLauncher.launch(intent)
+            },
+            onDismiss = { viewModel.onPermissionDialogDismiss() }
+        )
     }
 
     Scaffold(
@@ -95,6 +130,7 @@ fun AppListScreen(
                     ) { appWithStatus ->
                         AppCard(
                             appWithStatus = appWithStatus,
+                            downloadState = uiState.downloadStates[appWithStatus.app.id],
                             onClick = { viewModel.selectApp(appWithStatus) }
                         )
                     }
@@ -106,8 +142,10 @@ fun AppListScreen(
     uiState.selectedApp?.let { selected ->
         AppDetailSheet(
             appWithStatus = selected,
+            downloadState = uiState.downloadStates[selected.app.id],
             onDismiss = { viewModel.clearSelection() },
-            onAction = { /* Phase 3: download & install */ }
+            onAction = { viewModel.downloadAndInstall(selected.app) },
+            onCancel = { viewModel.cancelDownload(selected.app.id) }
         )
     }
 }

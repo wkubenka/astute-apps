@@ -1,6 +1,7 @@
 package com.william.astuterepo.ui.applist
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -19,11 +21,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.william.astuterepo.domain.AppWithStatus
+import com.william.astuterepo.domain.DownloadState
 import com.william.astuterepo.domain.InstallStatus
 
 @Composable
 fun AppCard(
     appWithStatus: AppWithStatus,
+    downloadState: DownloadState?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -68,7 +72,36 @@ fun AppCard(
                 )
             }
 
-            StatusBadge(status = appWithStatus.status)
+            when {
+                downloadState is DownloadState.Downloading -> {
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            progress = { downloadState.progress / 100f },
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp
+                        )
+                        Text(
+                            text = "${downloadState.progress}%",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+                downloadState is DownloadState.Installing ||
+                    downloadState is DownloadState.Downloaded -> {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ) {
+                        Text(
+                            text = "Installing",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+                else -> StatusBadge(status = appWithStatus.status)
+            }
         }
     }
 }
