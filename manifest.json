@@ -7,6 +7,14 @@
       "icon_url": "https://raw.githubusercontent.com/wkubenka/podcasts/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
       "github": "wkubenka/podcasts",
       "min_sdk": 26
+    },
+    {
+      "id": "com.astute.body",
+      "name": "Astute Body",
+      "description": "Smart workout generator with scoring-based muscle group rotation and progressive overload tracking.",
+      "icon_url": "https://raw.githubusercontent.com/wkubenka/lifting/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "github": "wkubenka/lifting",
+      "min_sdk": 26
     }
   ]
 }
