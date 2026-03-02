@@ -120,7 +120,14 @@ class AppListViewModel @Inject constructor(
         val currentApps = _uiState.value.apps
         if (currentApps.isEmpty()) return
         val refreshed = currentApps.map { versionChecker.resolveStatus(it.app) }
-        _uiState.value = _uiState.value.copy(apps = refreshed)
+
+        val updatedSelected = _uiState.value.selectedApp?.let { selected ->
+            refreshed.find { it.app.id == selected.app.id }
+        }
+        _uiState.value = _uiState.value.copy(
+            apps = refreshed,
+            selectedApp = updatedSelected ?: _uiState.value.selectedApp
+        )
 
         val downloadStates = installManager.downloadStates.value
         refreshed.forEach { appWithStatus ->
