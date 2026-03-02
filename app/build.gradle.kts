@@ -15,8 +15,8 @@ android {
         applicationId = "com.astute.repo"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = findProperty("VERSION_CODE")?.toString()?.toIntOrNull() ?: 1
+        versionName = findProperty("VERSION_NAME")?.toString() ?: "0.1.0"
 
         buildConfigField(
             "String",
@@ -25,9 +25,22 @@ android {
         )
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = System.getenv("KEYSTORE_FILE")
+            if (keystoreFile != null) {
+                storeFile = file(keystoreFile)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

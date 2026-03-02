@@ -1,6 +1,14 @@
 {
   "apps": [
     {
+      "id": "com.astute.repo",
+      "name": "Astute Repo",
+      "description": "Personal app repository for discovering, installing, and updating sideloaded apps.",
+      "icon_url": "https://raw.githubusercontent.com/wkubenka/astute-apps/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "github": "wkubenka/astute-apps",
+      "min_sdk": 26
+    },
+    {
       "id": "com.astute.podcasts",
       "name": "Astute Podcasts",
       "description": "Podcast player with search, subscriptions, downloads, and offline playback.",
