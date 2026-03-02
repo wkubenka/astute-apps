@@ -3,6 +3,7 @@ package com.astute.repo.domain
 import android.app.Application
 import android.content.pm.PackageManager
 import android.os.Build
+import com.astute.repo.BuildConfig
 import com.astute.repo.data.model.AppEntry
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,20 +28,17 @@ class VersionChecker @Inject constructor(
 ) {
     private val packageManager: PackageManager get() = application.packageManager
 
+    private val isSelf: (String) -> Boolean = { it == application.packageName }
+
     fun getInstallStatus(appId: String, manifestVersionName: String?): InstallStatus {
-        val info = try {
-            packageManager.getPackageInfo(appId, 0)
-        } catch (_: PackageManager.NameNotFoundException) {
-            null
-        }
+        val installedVersionName = getInstalledVersionName(appId)
 
         if (manifestVersionName == null) {
-            return if (info != null) InstallStatus.UP_TO_DATE else InstallStatus.NO_RELEASE
+            return if (installedVersionName != null) InstallStatus.UP_TO_DATE else InstallStatus.NO_RELEASE
         }
 
-        if (info == null) return InstallStatus.NOT_INSTALLED
+        if (installedVersionName == null) return InstallStatus.NOT_INSTALLED
 
-        val installedVersionName = info.versionName ?: return InstallStatus.UPDATE_AVAILABLE
         return if (compareVersions(installedVersionName, manifestVersionName) >= 0) {
             InstallStatus.UP_TO_DATE
         } else {
@@ -49,6 +47,7 @@ class VersionChecker @Inject constructor(
     }
 
     fun getInstalledVersionName(appId: String): String? {
+        if (isSelf(appId)) return BuildConfig.VERSION_NAME
         return try {
             packageManager.getPackageInfo(appId, 0).versionName
         } catch (_: PackageManager.NameNotFoundException) {
@@ -57,6 +56,7 @@ class VersionChecker @Inject constructor(
     }
 
     fun getInstalledVersionCode(appId: String): Long? {
+        if (isSelf(appId)) return BuildConfig.VERSION_CODE.toLong()
         return try {
             val info = packageManager.getPackageInfo(appId, 0)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
