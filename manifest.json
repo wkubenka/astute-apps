@@ -15,6 +15,14 @@
       "icon_url": "https://raw.githubusercontent.com/wkubenka/lifting/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
       "github": "wkubenka/lifting",
       "min_sdk": 26
+    },
+    {
+      "id": "com.astute.calories",
+      "name": "Astute Calories",
+      "description": "Daily calorie tracker with barcode scanning, food search, and saved meals.",
+      "icon_url": "https://raw.githubusercontent.com/wkubenka/calories/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "github": "wkubenka/calories",
+      "min_sdk": 26
     }
   ]
 }
