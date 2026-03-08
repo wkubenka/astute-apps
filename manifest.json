@@ -31,6 +31,14 @@
       "icon_url": "https://raw.githubusercontent.com/wkubenka/calories/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
       "github": "wkubenka/calories",
       "min_sdk": 26
+    },
+    {
+      "id": "com.astute.notes",
+      "name": "Astute Notes",
+      "description": "A simple notes app with optional S3 backup",
+      "icon_url": "https://raw.githubusercontent.com/wkubenka/astute-notes/main/docs/icon.png",
+      "github": "wkubenka/astute-notes",
+      "min_sdk": 26
     }
   ]
 }
