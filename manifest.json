@@ -39,6 +39,14 @@
       "icon_url": "https://raw.githubusercontent.com/wkubenka/astute-notes/main/docs/icon.png",
       "github": "wkubenka/astute-notes",
       "min_sdk": 26
+    },
+    {
+      "id": "com.astute.pause",
+      "name": "Astute Pause",
+      "description": "A gentle speed bump before non-essential purchases: a price-scaled checklist, advisory cool-off waits, and a 90-day look back.",
+      "icon_url": "https://raw.githubusercontent.com/wkubenka/pause/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "github": "wkubenka/pause",
+      "min_sdk": 26
     }
   ]
 }
